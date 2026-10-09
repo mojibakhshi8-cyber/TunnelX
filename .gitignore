@@ -1,0 +1,10 @@
+/security/server.key
+/security/server.crt
+/security/wrong-ca.crt
+/dist/
+/release/
+/backups/
+/tunnelx
+/tunnelx-check
+/main-before-tls.txt
+*.log

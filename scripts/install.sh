@@ -1,60 +1,56 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${TUNNELX_REPO:-}"
-INSTALL_DIR="${TUNNELX_INSTALL_DIR:-$HOME/.local/bin}"
-SHARE_DIR="${TUNNELX_SHARE_DIR:-$HOME/.local/share/tunnelx}"
+REPO="mojibakhshi8-cyber/TunnelX"
+BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
+SHARE_DIR="${SHARE_DIR:-$HOME/.local/share/tunnelx}"
 
-if [[ -z "$REPO" || ! "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-  echo "Usage: TUNNELX_REPO=username/repository bash install.sh"
+if [[ "$(uname -s)" != "Linux" ]]; then
+  echo "Error: TunnelX supports Linux only." >&2
   exit 1
 fi
-
-case "$(uname -s)" in
-  Linux) ;;
-  *) echo "Linux only."; exit 1 ;;
-esac
 
 case "$(uname -m)" in
   x86_64|amd64) ASSET="tunnelx-linux-amd64" ;;
   aarch64|arm64) ASSET="tunnelx-linux-arm64" ;;
-  *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+  *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-command -v curl >/dev/null || { echo "Install curl first."; exit 1; }
+command -v curl >/dev/null || { echo "Please install curl first." >&2; exit 1; }
 
-API_URL="https://api.github.com/repos/${REPO}/releases/latest"
-DOWNLOAD_URL="$(curl -fsSL "$API_URL" |
+API="https://api.github.com/repos/${REPO}/releases/latest"
+RELEASE="$(curl -fsSL "$API")"
+
+URL="$(printf '%s\n' "$RELEASE" |
   grep -oE '"browser_download_url":[[:space:]]*"[^"]*' |
   cut -d '"' -f 4 | grep "/${ASSET}$" | head -n 1 || true)"
 
-if [[ -z "$DOWNLOAD_URL" ]]; then
-  echo "No published release asset found: $ASSET"
-  echo "Publish a GitHub Release containing this binary first."
+if [[ -z "$URL" ]]; then
+  echo "No release asset found: $ASSET" >&2
   exit 1
 fi
 
-mkdir -p "$INSTALL_DIR" "$SHARE_DIR"
-TMP_FILE="$(mktemp)"
-trap 'rm -f "$TMP_FILE"' EXIT
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
-echo "Downloading $ASSET ..."
-curl -fL "$DOWNLOAD_URL" -o "$TMP_FILE"
-install -m 0755 "$TMP_FILE" "$INSTALL_DIR/tunnelx"
+echo "Downloading $ASSET..."
+curl -fL --retry 3 "$URL" -o "$TMP/tunnelx"
+chmod 0755 "$TMP/tunnelx"
 
-MENU_URL="https://raw.githubusercontent.com/${REPO}/main/scripts/tunnelx-menu.sh"
-curl -fsSL "$MENU_URL" -o "$SHARE_DIR/tunnelx-menu.sh"
-chmod 0755 "$SHARE_DIR/tunnelx-menu.sh"
+mkdir -p "$BIN_DIR" "$SHARE_DIR"
+install -m 0755 "$TMP/tunnelx" "$BIN_DIR/tunnelx"
 
-cat > "$INSTALL_DIR/tunnelx-menu" <<LAUNCHER
-#!/usr/bin/env bash
-TUNNELX_BIN="$INSTALL_DIR/tunnelx" exec bash "$SHARE_DIR/tunnelx-menu.sh"
-LAUNCHER
-chmod 0755 "$INSTALL_DIR/tunnelx-menu"
+# Download the setup menu from the same repository branch.
+curl -fsSL \
+  "https://raw.githubusercontent.com/${REPO}/main/scripts/tunnelx-menu.sh" \
+  -o "$TMP/tunnelx-menu.sh"
+install -m 0755 "$TMP/tunnelx-menu.sh" "$BIN_DIR/tunnelx-menu"
 
 echo
 echo "TunnelX installed."
-echo "Run the setup menu with:"
-echo "$INSTALL_DIR/tunnelx-menu"
-echo
-echo "If needed, add $INSTALL_DIR to your PATH."
+echo "Binary: $BIN_DIR/tunnelx"
+echo "Setup menu: $BIN_DIR/tunnelx-menu"
+echo "Run the menu with: $BIN_DIR/tunnelx-menu"
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+  echo "Add to PATH: export PATH=\"$BIN_DIR:\$PATH\""
+fi

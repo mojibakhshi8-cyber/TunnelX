@@ -36,3 +36,9 @@ Typical results:
 - Real VPS-to-client testing is pending.
 - Performance and stability benchmarks are pending.
 - This is an experimental build, not suitable for production use.
+
+
+لینک نصب اسان اسکریپت 
+تین اسکریپت تازه ساخته شده و نیازمند حمایت شما عزیزان هستش
+
+bash <(curl -Ls https://raw.githubusercontent.com/mojibakhshi8-cyber/TunnelX/main/install.sh)
